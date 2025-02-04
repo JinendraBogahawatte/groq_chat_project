@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Groq Chat App</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="chat-container">
+        <h1>Groq Chat App</h1>
+        <div id="chat-box" class="chat-box"></div>
+        <form id="chat-form">
+            <input type="text" id="user-input" name="message" placeholder="Type your message..." required>
+            <button type="submit">Send</button>
+        </form>
+    </div>
+
+    <script>
+        const chatForm = document.getElementById('chat-form');
+        const chatBox = document.getElementById('chat-box');
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const userInput = document.getElementById('user-input');
+            const userMessage = userInput.value;
+
+            // Append user's message to the chat box
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.className = 'user-message';
+            userMessageDiv.textContent = userMessage;
+            chatBox.appendChild(userMessageDiv);
+
+            // Send the message to the server
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `message=${encodeURIComponent(userMessage)}`
+            });
+
+            const data = await response.json();
+
+            // Append assistant's response to the chat box
+            const assistantMessageDiv = document.createElement('div');
+            assistantMessageDiv.className = 'assistant-message';
+            assistantMessageDiv.textContent = data.response;
+            chatBox.appendChild(assistantMessageDiv);
+
+            // Clear the input field
+            userInput.value = '';
+        });
+    </script>
+</body>
+</html>
