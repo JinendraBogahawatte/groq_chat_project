@@ -8,48 +8,114 @@
 </head>
 <body>
     <div class="chat-container">
-        <h1>Groq Chat App</h1>
-        <div id="chat-box" class="chat-box"></div>
-        <form id="chat-form">
-            <input type="text" id="user-input" name="message" placeholder="Type your message..." required>
-            <button type="submit">Send</button>
-        </form>
+        <div class="header">
+            <h1>Groq Chat</h1>
+        </div>
+
+        <!-- Chat Window -->
+        <div class="chat-box" id="chat-box"></div>
+
+        <!-- File Upload & Input -->
+        <div class="input-container">
+            <button id="mic-button" title="Speak">🎤</button>
+            <input type="text" id="user-input" name="message" placeholder="Message Groq AI..." required>
+            <button id="file-upload-button" title="Upload File">📂</button>
+            <input type="file" id="file-input" style="display: none;">
+            <button id="send-button">➤</button>
+        </div>
     </div>
 
     <script>
-        const chatForm = document.getElementById('chat-form');
         const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const micButton = document.getElementById('mic-button');
+        const fileInput = document.getElementById('file-input');
+        const fileUploadButton = document.getElementById('file-upload-button');
 
-        chatForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        function appendMessage(role, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = role === 'user' ? 'user-message' : 'assistant-message';
+            messageDiv.textContent = text;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
 
-            const userInput = document.getElementById('user-input');
-            const userMessage = userInput.value;
-
-            // Append user's message to the chat box
-            const userMessageDiv = document.createElement('div');
-            userMessageDiv.className = 'user-message';
-            userMessageDiv.textContent = userMessage;
-            chatBox.appendChild(userMessageDiv);
-
-            // Send the message to the server
-            const response = await fetch('/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `message=${encodeURIComponent(userMessage)}`
-            });
-
-            const data = await response.json();
-
-            // Append assistant's response to the chat box
-            const assistantMessageDiv = document.createElement('div');
-            assistantMessageDiv.className = 'assistant-message';
-            assistantMessageDiv.textContent = data.response;
-            chatBox.appendChild(assistantMessageDiv);
-
-            // Clear the input field
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+            appendMessage('user', message);
             userInput.value = '';
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `message=${encodeURIComponent(message)}`
+                });
+
+                const data = await response.json();
+                appendMessage('assistant', data.response);
+                speakText(data.response);
+            } catch (error) {
+                appendMessage('assistant', "Error: Unable to fetch response.");
+            }
+        }
+
+        sendButton.addEventListener('click', sendMessage);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
         });
+
+        // Speech Recognition for Voice Input
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        micButton.addEventListener('click', () => {
+            recognition.start();
+        });
+
+        recognition.onresult = (event) => {
+            const voiceInput = event.results[0][0].transcript;
+            userInput.value = voiceInput;
+            sendMessage();
+        };
+
+        // File Upload Handler
+        fileUploadButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            appendMessage('user', `📁 Uploaded: ${file.name}`);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                appendMessage('assistant', data.file_content || "Error processing file.");
+            } catch (error) {
+                appendMessage('assistant', "Error: Unable to process file.");
+            }
+        });
+
+        // Text-to-Speech for AI Response
+        function speakText(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            speechSynthesis.speak(utterance);
+        }
     </script>
 </body>
 </html>
